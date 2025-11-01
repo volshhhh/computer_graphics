@@ -22,4 +22,13 @@ public:
     
     static void drawColorPalette(cv::Mat& image, const cv::Vec3b& color);
     static void drawColorComponents(cv::Mat& image, const ColorModels& colors);
+    
+    // New functions for color picker
+    static void drawPresetPalette(cv::Mat& image);
+    static void drawHsvGradient(cv::Mat& image);
+    static cv::Vec3b getColorFromPresetPalette(int x, int y);
+    static cv::Vec3b getColorFromHsvGradient(int x, int y);
+    
+private:
+    static std::vector<cv::Vec3b> getPresetColors();
 };

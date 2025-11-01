@@ -26,10 +26,16 @@ void onCmykTrackbarChange(int, void*) {
 }
 
 void updateDisplay() {
-    display = cv::Mat(700, 800, CV_8UC3, cv::Scalar(50, 50, 50));
+    display = cv::Mat(750, 800, CV_8UC3, cv::Scalar(50, 50, 50));
     
-    // Draw color palette
+    // Draw main color display
     ColorConverter::drawColorPalette(display, currentColors.rgb);
+    
+    // Draw preset color palette
+    ColorConverter::drawPresetPalette(display);
+    
+    // Draw HSV gradient picker
+    ColorConverter::drawHsvGradient(display);
     
     // Draw color components
     ColorConverter::drawColorComponents(display, currentColors);
@@ -39,9 +45,9 @@ void updateDisplay() {
                 cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 255, 255), 2);
     cv::putText(display, "Last changed: " + lastChangedModel, cv::Point(50, 60), 
                 cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255, 255, 0), 1);
-    cv::putText(display, "Use trackbars to adjust color components in any model", cv::Point(50, 600), 
+    cv::putText(display, "Click on color palette to select color", cv::Point(50, 650), 
                 cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(200, 200, 200), 1);
-    cv::putText(display, "Press 'r' to reset, 'q' or ESC to quit", cv::Point(50, 625), 
+    cv::putText(display, "Use trackbars to adjust | Press 'r' to reset | 'q' or ESC to quit", cv::Point(50, 675), 
                 cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(200, 200, 200), 1);
     
     cv::imshow("Color Models Converter", display);
@@ -65,13 +71,41 @@ void updateAllTrackbars(const ColorModels& colors) {
     cv::setTrackbarPos("Black%", "Color Models Converter", static_cast<int>(colors.cmyk[3]));
 }
 
+// Mouse callback function for color picking
+void onMouseClick(int event, int x, int y, int flags, void* userdata) {
+    if (event == cv::EVENT_LBUTTONDOWN) {
+        // Check if click is in preset palette area
+        cv::Vec3b selectedColor = ColorConverter::getColorFromPresetPalette(x, y);
+        if (selectedColor != cv::Vec3b(0, 0, 0) || (x >= 300 && x <= 750 && y >= 80 && y <= 130)) {
+            currentColors = ColorConverter::updateFromRgb(selectedColor);
+            updateAllTrackbars(currentColors);
+            lastChangedModel = "PALETTE";
+            updateDisplay();
+            return;
+        }
+        
+        // Check if click is in HSV gradient area
+        selectedColor = ColorConverter::getColorFromHsvGradient(x, y);
+        if (selectedColor != cv::Vec3b(0, 0, 0) || (x >= 300 && x <= 750 && y >= 150 && y <= 280)) {
+            currentColors = ColorConverter::updateFromRgb(selectedColor);
+            updateAllTrackbars(currentColors);
+            lastChangedModel = "PALETTE";
+            updateDisplay();
+            return;
+        }
+    }
+}
+
 int main() {
     // Initialize with white color
     currentColors = ColorConverter::updateFromRgb(cv::Vec3b(255, 255, 255));
     
     // Create window
     cv::namedWindow("Color Models Converter", cv::WINDOW_AUTOSIZE);
-    cv::resizeWindow("Color Models Converter", 800, 700);
+    cv::resizeWindow("Color Models Converter", 800, 750);
+    
+    // Set mouse callback
+    cv::setMouseCallback("Color Models Converter", onMouseClick, nullptr);
     
     // Create trackbars for RGB with specific callbacks
     int r = currentColors.rgb[2];
@@ -102,8 +136,10 @@ int main() {
     updateDisplay();
     
     std::cout << "Color Models Converter Started" << std::endl;
-    std::cout << "You can now adjust color components in ANY model (RGB, HSV, or CMYK)" << std::endl;
-    std::cout << "The last changed model will be displayed on screen" << std::endl;
+    std::cout << "You can now:" << std::endl;
+    std::cout << "  - Click on color palette to select colors" << std::endl;
+    std::cout << "  - Adjust color components in ANY model (RGB, HSV, or CMYK)" << std::endl;
+    std::cout << "  - Press 'r' to reset, 'q' or ESC to quit" << std::endl;
     
     while (true) {
         if (trackbarChanged) {
@@ -152,15 +188,6 @@ int main() {
             currentColors = ColorConverter::updateFromRgb(cv::Vec3b(255, 255, 255));
             updateAllTrackbars(currentColors);
             lastChangedModel = "RGB";
-            updateDisplay();
-        } else if (key == '1') { // Switch to RGB mode
-            lastChangedModel = "RGB";
-            updateDisplay();
-        } else if (key == '2') { // Switch to HSV mode
-            lastChangedModel = "HSV";
-            updateDisplay();
-        } else if (key == '3') { // Switch to CMYK mode
-            lastChangedModel = "CMYK";
             updateDisplay();
         }
     }
