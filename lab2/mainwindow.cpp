@@ -2,10 +2,6 @@
 #include <iostream>
 #include <cmath>
 
-// ===================================================================
-// КЛАСС ImageProcessor
-// ===================================================================
-
 ImageProcessor::ImageProcessor() : width(0), height(0) {}
 
 bool ImageProcessor::loadImage(const std::string& filename) {
@@ -27,15 +23,13 @@ bool ImageProcessor::loadImage(const std::string& filename) {
     }
 }
 
-// НОВАЯ ВЕРСИЯ ФИЛЬТРА С ПОДДЕРЖКОЙ РАЗНЫХ РАЗМЕРОВ ЯДРА
 void ImageProcessor::applyLowPassFilter(int kernelSize) {
     if (!filteredPixbuf) return;
 
     auto tempPixbuf = filteredPixbuf->copy();
 
-    // Проверяем, что размер ядра нечетный и положительный
     if (kernelSize % 2 == 0 || kernelSize < 3) {
-        kernelSize = 3; // Минимальный размер 3x3
+        kernelSize = 3;
     }
 
     int radius = kernelSize / 2;
@@ -44,14 +38,12 @@ void ImageProcessor::applyLowPassFilter(int kernelSize) {
     int rowstride = filteredPixbuf->get_rowstride();
     int n_channels = filteredPixbuf->get_n_channels();
 
-    // Обрабатываем только те пиксели, для которых есть полное окрестность
     for (int y = radius; y < height - radius; ++y) {
         for (int x = radius; x < width - radius; ++x) {
             for (int channel = 0; channel < 3; channel++) {
                 int sum = 0;
                 int count = 0;
 
-                // Проходим по всем пикселям в окрестности kernelSize x kernelSize
                 for (int ky = -radius; ky <= radius; ++ky) {
                     for (int kx = -radius; kx <= radius; ++kx) {
                         guint8* p = src_pixels + (y + ky) * rowstride + (x + kx) * n_channels;
@@ -67,7 +59,6 @@ void ImageProcessor::applyLowPassFilter(int kernelSize) {
     }
 }
 
-// ВЕРСИЯ С ГАУССОВЫМ ФИЛЬТРОМ (ЕЩЕ БОЛЕЕ МОЩНОЕ СГЛАЖИВАНИЕ)
 void ImageProcessor::applyGaussianFilter(int kernelSize, double sigma) {
     if (!filteredPixbuf) return;
 
@@ -83,11 +74,9 @@ void ImageProcessor::applyGaussianFilter(int kernelSize, double sigma) {
     int rowstride = filteredPixbuf->get_rowstride();
     int n_channels = filteredPixbuf->get_n_channels();
 
-    // Создаем гауссово ядро
     std::vector<std::vector<double>> kernel(kernelSize, std::vector<double>(kernelSize));
     double sum_kernel = 0.0;
 
-    // Заполняем ядро значениями гауссовой функции
     for (int i = -radius; i <= radius; i++) {
         for (int j = -radius; j <= radius; j++) {
             double value = exp(-(i*i + j*j) / (2 * sigma * sigma));
@@ -96,14 +85,12 @@ void ImageProcessor::applyGaussianFilter(int kernelSize, double sigma) {
         }
     }
 
-    // Нормализуем ядро
     for (int i = 0; i < kernelSize; i++) {
         for (int j = 0; j < kernelSize; j++) {
             kernel[i][j] /= sum_kernel;
         }
     }
 
-    // Применяем фильтр
     for (int y = radius; y < height - radius; ++y) {
         for (int x = radius; x < width - radius; ++x) {
             for (int channel = 0; channel < 3; channel++) {
@@ -344,11 +331,6 @@ void ImageProcessor::resetToOriginal() {
 
 bool ImageProcessor::hasImage() const { return (bool)originalPixbuf; }
 
-
-// ===================================================================
-// КЛАССЫ ДИАЛОГОВ И ГИСТОГРАММЫ
-// ===================================================================
-
 HistogramDrawingArea::HistogramDrawingArea(const std::vector<int>& histogram, const Gdk::RGBA& color)
         : histogram(histogram), color(color) {
     set_size_request(550, 300);
@@ -487,7 +469,6 @@ int ContrastDialog::getMaxValue() const {
     return static_cast<int>(maxScale.get_value());
 }
 
-// НОВЫЙ ДИАЛОГ ДЛЯ ВЫБОРА РАЗМЕРА ФИЛЬТРА
 FilterDialog::FilterDialog(Gtk::Window& parent)
         : Gtk::Dialog("Low-Pass Filter Settings", parent, true) {
     
@@ -496,13 +477,11 @@ FilterDialog::FilterDialog(Gtk::Window& parent)
     
     Gtk::Box* contentBox = get_content_area();
     
-    // Выбор типа фильтра
     filterTypeLabel.set_label("Filter Type:");
     filterTypeCombo.append("Average Filter");
     filterTypeCombo.append("Gaussian Filter");
     filterTypeCombo.set_active(0);
     
-    // Выбор размера ядра
     kernelSizeLabel.set_label("Kernel Size:");
     kernelSizeCombo.append("3x3");
     kernelSizeCombo.append("5x5");
@@ -511,14 +490,12 @@ FilterDialog::FilterDialog(Gtk::Window& parent)
     kernelSizeCombo.append("11x11");
     kernelSizeCombo.set_active(0);
     
-    // Параметр sigma для гауссова фильтра
     sigmaLabel.set_label("Sigma (for Gaussian):");
     sigmaScale.set_range(0.5, 5.0);
     sigmaScale.set_value(1.0);
     sigmaScale.set_increments(0.1, 0.5);
     sigmaScale.set_digits(1);
     
-    // Упаковка элементов
     filterTypeBox.pack_start(filterTypeLabel, false, false, 5);
     filterTypeBox.pack_start(filterTypeCombo, true, true, 5);
     
@@ -560,10 +537,6 @@ double FilterDialog::getSigma() const {
     return sigmaScale.get_value();
 }
 
-// ===================================================================
-// КЛАСС MainWindow
-// ===================================================================
-
 MainWindow::MainWindow() {
     set_title("Image Processing Application");
     set_default_size(1200, 800);
@@ -574,69 +547,8 @@ MainWindow::MainWindow() {
 
 void MainWindow::setupUI() {
     add(mainBox);
-    setupMenu();
     setupLayout();
     show_all_children();
-}
-
-void MainWindow::setupMenu() {
-    fileMenuItem.set_label("File");
-    fileMenuItem.set_submenu(fileMenu);
-
-    openMenuItem.set_label("Open Image");
-    openMenuItem.signal_activate().connect([this]() { on_open_clicked(); });
-    fileMenu.append(openMenuItem);
-
-    saveMenuItem.set_label("Save Filtered Image");
-    saveMenuItem.signal_activate().connect([this]() { on_save_clicked(); });
-    fileMenu.append(saveMenuItem);
-
-    fileMenu.append(*(new Gtk::SeparatorMenuItem()));
-
-    exitMenuItem.set_label("Exit");
-    exitMenuItem.signal_activate().connect([this]() { hide(); });
-    fileMenu.append(exitMenuItem);
-
-    filterMenuItem.set_label("Filter");
-    filterMenuItem.set_submenu(filterMenu);
-
-    // ПУНКТЫ МЕНЮ ДЛЯ ФИЛЬТРОВ
-    lowpassMenuItem.set_label("Low-Pass Filter (Configurable)");
-    lowpassMenuItem.signal_activate().connect([this]() { on_lowpass_clicked(); });
-    filterMenu.append(lowpassMenuItem);
-
-    histogramMenuItem.set_label("Histogram");
-    histogramMenuItem.set_submenu(histogramMenu);
-
-    equalizeMenuItem.set_label("Histogram Equalization");
-    equalizeMenuItem.signal_activate().connect([this]() { on_equalize_clicked(); });
-    histogramMenu.append(equalizeMenuItem);
-
-    contrastMenuItem.set_label("Linear Contrast");
-    contrastMenuItem.signal_activate().connect([this]() { on_contrast_clicked(); });
-    histogramMenu.append(contrastMenuItem);
-
-    showHistogramMenuItem.set_label("Show Histogram");
-    showHistogramMenuItem.signal_activate().connect([this]() { on_show_histogram_clicked(); });
-    histogramMenu.append(showHistogramMenuItem);
-
-    compressionMenuItem.set_label("RLE");
-    compressionMenuItem.set_submenu(compressionMenu);
-
-    encodeAndSaveRLEMenuItem.set_label("Encode and Save RLE");
-    encodeAndSaveRLEMenuItem.signal_activate().connect([this]() { on_encode_and_save_rle_clicked(); });
-    compressionMenu.append(encodeAndSaveRLEMenuItem);
-
-    decodeAndOpenRLEMenuItem.set_label("Decode and Open RLE");
-    decodeAndOpenRLEMenuItem.signal_activate().connect([this]() { on_decode_and_open_rle_clicked(); });
-    compressionMenu.append(decodeAndOpenRLEMenuItem);
-
-    menuBar.append(fileMenuItem);
-    menuBar.append(filterMenuItem);
-    menuBar.append(histogramMenuItem);
-    menuBar.append(compressionMenuItem);
-
-    mainBox.pack_start(menuBar, Gtk::PACK_SHRINK);
 }
 
 void MainWindow::setupLayout() {
@@ -663,7 +575,6 @@ void MainWindow::setupLayout() {
     controlsBox.set_size_request(250, -1);
     contentBox.pack_start(controlsBox, false, false, 0);
 
-    // -- Секция "Файл" --
     auto fileLabel = Gtk::manage(new Gtk::Label("<b>File</b>"));
     fileLabel->set_use_markup(true);
     fileLabel->set_xalign(0.0);
@@ -693,13 +604,11 @@ void MainWindow::setupLayout() {
 
     controlsBox.pack_start(*Gtk::manage(new Gtk::Separator(Gtk::ORIENTATION_HORIZONTAL)), Gtk::PACK_SHRINK, 10);
 
-    // -- Секция "Фильтры" --
     auto filterLabel = Gtk::manage(new Gtk::Label("<b>Filters</b>"));
     filterLabel->set_use_markup(true);
     filterLabel->set_xalign(0.0);
     controlsBox.pack_start(*filterLabel, Gtk::PACK_SHRINK, 5);
 
-    //КНОПКА ДЛЯ ФИЛЬТРА
     lowpassButton.set_label("Apply Low-Pass Filter");
     lowpassButton.set_image(*lowpassIcon);
     lowpassButton.set_always_show_image(true);
@@ -708,7 +617,6 @@ void MainWindow::setupLayout() {
 
     controlsBox.pack_start(*Gtk::manage(new Gtk::Separator(Gtk::ORIENTATION_HORIZONTAL)), Gtk::PACK_SHRINK, 10);
 
-    // -- Секция "Гистограмма" --
     auto histLabel = Gtk::manage(new Gtk::Label("<b>Histogram</b>"));
     histLabel->set_use_markup(true);
     histLabel->set_xalign(0.0);
@@ -734,7 +642,6 @@ void MainWindow::setupLayout() {
 
     controlsBox.pack_start(*Gtk::manage(new Gtk::Separator(Gtk::ORIENTATION_HORIZONTAL)), Gtk::PACK_SHRINK, 10);
 
-    // -- Секция "Сжатие" --
     auto rleLabel = Gtk::manage(new Gtk::Label("<b>Compression (RLE)</b>"));
     rleLabel->set_use_markup(true);
     rleLabel->set_xalign(0.0);
@@ -752,17 +659,12 @@ void MainWindow::setupLayout() {
     decodeAndOpenRLEButton.signal_clicked().connect([this]() { on_decode_and_open_rle_clicked(); });
     controlsBox.pack_start(decodeAndOpenRLEButton, Gtk::PACK_SHRINK);
 
-    // -- Кнопка сброса (внизу) --
     controlsBox.pack_end(resetButton, Gtk::PACK_SHRINK, 10);
     resetButton.set_label("Reset to Original");
     resetButton.set_image(*resetIcon);
     resetButton.set_always_show_image(true);
     resetButton.signal_clicked().connect([this]() { on_reset_clicked(); });
 }
-
-// ===================================================================
-// ОБРАБОТЧИКИ СОБЫТИЙ
-// ===================================================================
 
 void MainWindow::on_open_clicked() {
     Gtk::FileChooserDialog dialog("Choose an image", Gtk::FILE_CHOOSER_ACTION_OPEN);
@@ -848,7 +750,6 @@ void MainWindow::on_save_clicked() {
     }
 }
 
-// ОБНОВЛЕННЫЙ ОБРАБОТЧИК ДЛЯ ФИЛЬТРА
 void MainWindow::on_lowpass_clicked() {
     if (!processor.hasImage()) {
         Gtk::MessageDialog error(*this, "No image loaded", false, Gtk::MESSAGE_WARNING);
@@ -863,14 +764,12 @@ void MainWindow::on_lowpass_clicked() {
         double sigma = dialog.getSigma();
 
         if (filterType == 0) {
-            // Average filter
             processor.applyLowPassFilter(kernelSize);
             Gtk::MessageDialog info(*this, 
                 "Applied average filter with kernel size " + std::to_string(kernelSize) + "x" + std::to_string(kernelSize), 
                 false, Gtk::MESSAGE_INFO);
             info.run();
         } else {
-            // Gaussian filter
             processor.applyGaussianFilter(kernelSize, sigma);
             Gtk::MessageDialog info(*this, 
                 "Applied Gaussian filter with kernel size " + std::to_string(kernelSize) + "x" + std::to_string(kernelSize) + 

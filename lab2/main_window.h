@@ -108,7 +108,6 @@ public:
 
 private:
     void setupUI();
-    void setupMenu();
     void setupLayout();
     
     // Обработчики событий
@@ -133,14 +132,6 @@ private:
     Gtk::ScrolledWindow originalScrolled, filteredScrolled;
     Gtk::Frame originalFrame, filteredFrame;
     Gtk::Image originalImage, filteredImage;
-
-    // Меню
-    Gtk::MenuBar menuBar;
-    Gtk::Menu fileMenu, filterMenu, histogramMenu, compressionMenu;
-    Gtk::MenuItem fileMenuItem, filterMenuItem, histogramMenuItem, compressionMenuItem;
-    Gtk::MenuItem openMenuItem, saveMenuItem, exitMenuItem;
-    Gtk::MenuItem lowpassMenuItem, equalizeMenuItem, contrastMenuItem, showHistogramMenuItem;
-    Gtk::MenuItem encodeAndSaveRLEMenuItem, decodeAndOpenRLEMenuItem;
 
     // Кнопки для боковой панели
     Gtk::Button openButton, saveButton;
