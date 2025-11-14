@@ -1,5 +1,4 @@
-#ifndef MAIN_WINDOW_H
-#define MAIN_WINDOW_H
+#pragma once
 
 #include <gtkmm-3.0/gtkmm.h>
 #include <vector>
@@ -14,7 +13,7 @@ public:
     void applyLowPassFilter();
     std::vector<std::vector<int>> getHistogram();
     void applyHistogramEqualization();
-    void applyLinearContrast(int min_out = 0, int max_out = 255); // <-- Оставил, как вы просили
+    void applyLinearContrast(int min_out = 0, int max_out = 255);
     std::vector<unsigned char> encodeRLE();
     bool decodeRLE(const std::vector<unsigned char>& encoded);
     bool saveRLEToFile(const std::string& filename);
@@ -61,7 +60,6 @@ private:
     HistogramDrawingArea* blueDrawingArea;
 };
 
-// <-- Класс ContrastDialog оставлен без изменений
 class ContrastDialog : public Gtk::Dialog {
 public:
     ContrastDialog(Gtk::Window& parent);
@@ -111,7 +109,7 @@ public:
 private:
     void setupUI();
     void setupMenu();
-    void setupLayout(); // <-- Новая функция для организации UI
+    void setupLayout();
     
     // Обработчики событий
     void on_open_clicked();
@@ -136,7 +134,7 @@ private:
     Gtk::Frame originalFrame, filteredFrame;
     Gtk::Image originalImage, filteredImage;
 
-    // Меню (осталось без изменений)
+    // Меню
     Gtk::MenuBar menuBar;
     Gtk::Menu fileMenu, filterMenu, histogramMenu, compressionMenu;
     Gtk::MenuItem fileMenuItem, filterMenuItem, histogramMenuItem, compressionMenuItem;
@@ -152,5 +150,3 @@ private:
 
     ImageProcessor processor;
 };
-
-#endif // MAIN_WINDOW_H

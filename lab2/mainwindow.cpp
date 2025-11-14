@@ -3,7 +3,7 @@
 #include <cmath>
 
 // ===================================================================
-// КЛАСС ImageProcessor (С ИЗМЕНЕНИЯМИ ДЛЯ ПОДДЕРЖКИ БОЛЬШИХ ЯДЕР)
+// КЛАСС ImageProcessor
 // ===================================================================
 
 ImageProcessor::ImageProcessor() : width(0), height(0) {}
@@ -346,7 +346,7 @@ bool ImageProcessor::hasImage() const { return (bool)originalPixbuf; }
 
 
 // ===================================================================
-// КЛАССЫ ДИАЛОГОВ И ГИСТОГРАММЫ (С ДОБАВЛЕНИЕМ ДИАЛОГА ДЛЯ ФИЛЬТРА)
+// КЛАССЫ ДИАЛОГОВ И ГИСТОГРАММЫ
 // ===================================================================
 
 HistogramDrawingArea::HistogramDrawingArea(const std::vector<int>& histogram, const Gdk::RGBA& color)
@@ -561,7 +561,7 @@ double FilterDialog::getSigma() const {
 }
 
 // ===================================================================
-// КЛАСС MainWindow (С ОБНОВЛЕННЫМ ИНТЕРФЕЙСОМ)
+// КЛАСС MainWindow
 // ===================================================================
 
 MainWindow::MainWindow() {
@@ -600,7 +600,7 @@ void MainWindow::setupMenu() {
     filterMenuItem.set_label("Filter");
     filterMenuItem.set_submenu(filterMenu);
 
-    // ОБНОВЛЕННЫЕ ПУНКТЫ МЕНЮ ДЛЯ ФИЛЬТРОВ
+    // ПУНКТЫ МЕНЮ ДЛЯ ФИЛЬТРОВ
     lowpassMenuItem.set_label("Low-Pass Filter (Configurable)");
     lowpassMenuItem.signal_activate().connect([this]() { on_lowpass_clicked(); });
     filterMenu.append(lowpassMenuItem);
@@ -699,7 +699,7 @@ void MainWindow::setupLayout() {
     filterLabel->set_xalign(0.0);
     controlsBox.pack_start(*filterLabel, Gtk::PACK_SHRINK, 5);
 
-    // ОБНОВЛЕННАЯ КНОПКА ДЛЯ ФИЛЬТРА
+    //КНОПКА ДЛЯ ФИЛЬТРА
     lowpassButton.set_label("Apply Low-Pass Filter");
     lowpassButton.set_image(*lowpassIcon);
     lowpassButton.set_always_show_image(true);
@@ -761,7 +761,7 @@ void MainWindow::setupLayout() {
 }
 
 // ===================================================================
-// ОБРАБОТЧИКИ СОБЫТИЙ (С ОБНОВЛЕННЫМ ФИЛЬТРОМ)
+// ОБРАБОТЧИКИ СОБЫТИЙ
 // ===================================================================
 
 void MainWindow::on_open_clicked() {
