@@ -184,35 +184,58 @@ void ImageProcessor::applyLinearContrast(int min_out, int max_out) {
 
     filteredPixbuf = originalPixbuf->copy();
 
-    std::vector<int> min_val(3, 255);
-    std::vector<int> max_val(3, 0);
+    int min_brightness = 255;
+    int max_brightness = 0;
 
     guint8* orig_pixels = originalPixbuf->get_pixels();
     int rowstride = originalPixbuf->get_rowstride();
     int n_channels = originalPixbuf->get_n_channels();
 
+    // Находим минимальную и максимальную яркость по всему изображению
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
             guint8* p = orig_pixels + y * rowstride + x * n_channels;
-            for (int channel = 0; channel < 3; channel++) {
-                min_val[channel] = std::min(min_val[channel], (int)p[channel]);
-                max_val[channel] = std::max(max_val[channel], (int)p[channel]);
-            }
+            
+            // Вычисляем яркость по формуле Y = 0.299R + 0.587G + 0.114B
+            float brightness = 0.299f * p[0] + 0.587f * p[1] + 0.114f * p[2];
+            int bright_int = static_cast<int>(brightness);
+            
+            min_brightness = std::min(min_brightness, bright_int);
+            max_brightness = std::max(max_brightness, bright_int);
         }
+    }
+
+    // Если все пиксели одинаковой яркости, избегаем деления на ноль
+    if (max_brightness == min_brightness) {
+        return;
     }
 
     guint8* pixels = filteredPixbuf->get_pixels();
 
+    // Применяем контрастирование ко всем каналам с одинаковым коэффициентом
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
             guint8* p = pixels + y * rowstride + x * n_channels;
+            
+            // Вычисляем яркость текущего пикселя
+            float brightness = 0.299f * p[0] + 0.587f * p[1] + 0.114f * p[2];
+            int bright_int = static_cast<int>(brightness);
+            
+            // Нормализуем яркость
+            float normalized = static_cast<float>(bright_int - min_brightness) / 
+                              (max_brightness - min_brightness);
+            
+            // Вычисляем новый уровень яркости
+            int new_brightness = static_cast<int>(min_out + normalized * (max_out - min_out));
+            new_brightness = std::max(0, std::min(255, new_brightness));
+            
+            // Вычисляем коэффициент масштабирования для каждого канала
+            float scale_factor = (bright_int == 0) ? 1.0f : static_cast<float>(new_brightness) / bright_int;
+            
+            // Применяем одинаковое преобразование ко всем каналам
             for (int channel = 0; channel < 3; channel++) {
-                if (max_val[channel] != min_val[channel]) {
-                    float normalized = static_cast<float>(p[channel] - min_val[channel]) /
-                                       (max_val[channel] - min_val[channel]);
-                    int new_value = static_cast<int>(min_out + normalized * (max_out - min_out));
-                    p[channel] = static_cast<guint8>(std::max(0, std::min(255, new_value)));
-                }
+                int new_value = static_cast<int>(p[channel] * scale_factor);
+                p[channel] = static_cast<guint8>(std::max(0, std::min(255, new_value)));
             }
         }
     }
