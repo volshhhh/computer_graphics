@@ -6,7 +6,7 @@ ImageProcessor::ImageProcessor() : width(0), height(0) {}
 
 bool ImageProcessor::loadImage(const std::string& filename) {
     try {
-        pixbuf = Gdk::Pixbuf::create_from_file(filename);
+        auto pixbuf = Gdk::Pixbuf::create_from_file(filename);
         if (!pixbuf) return false;
 
         width = pixbuf->get_width();
@@ -132,11 +132,21 @@ std::vector<std::vector<int>> ImageProcessor::getHistogram() {
     return histogram;
 }
 
-void ImageProcessor::applyHistogramEqualization() {
+void ImageProcessor::applyHistogramEqualization(int type) {
     if (!originalPixbuf) return;
 
     filteredPixbuf = originalPixbuf->copy();
 
+    if (type == 0) {
+        // RGB equalization - все каналы
+        applyRGBEqualization();
+    } else {
+        // HSV/HLS equalization - только яркость
+        applyBrightnessEqualization();
+    }
+}
+
+void ImageProcessor::applyRGBEqualization() {
     auto histogram = getHistogram();
 
     std::vector<std::vector<int>> cdf(3, std::vector<int>(256, 0));
@@ -174,6 +184,84 @@ void ImageProcessor::applyHistogramEqualization() {
                 } else {
                     p[channel] = 0;
                 }
+            }
+        }
+    }
+}
+
+void ImageProcessor::applyBrightnessEqualization() {
+    // Конвертируем в HSV/HLS и выравниваем только яркость/освещенность
+    guint8* pixels = filteredPixbuf->get_pixels();
+    int rowstride = filteredPixbuf->get_rowstride();
+    int n_channels = filteredPixbuf->get_n_channels();
+
+    // Собираем гистограмму яркости
+    std::vector<int> brightness_histogram(256, 0);
+    
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            guint8* p = pixels + y * rowstride + x * n_channels;
+            // Вычисляем яркость по формуле Y = 0.299R + 0.587G + 0.114B
+            float brightness = 0.299f * p[0] + 0.587f * p[1] + 0.114f * p[2];
+            int bright_int = static_cast<int>(brightness);
+            brightness_histogram[bright_int]++;
+        }
+    }
+
+    // Вычисляем CDF для яркости
+    std::vector<int> cdf(256, 0);
+    int total_pixels = width * height;
+    
+    cdf[0] = brightness_histogram[0];
+    for (int i = 1; i < 256; i++) {
+        cdf[i] = cdf[i-1] + brightness_histogram[i];
+    }
+
+    // Находим минимальное значение CDF
+    int cdf_min = total_pixels;
+    for (int i = 0; i < 256; i++) {
+        if (brightness_histogram[i] != 0) {
+            cdf_min = std::min(cdf_min, cdf[i]);
+        }
+    }
+
+    // Создаем lookup table для преобразования яркости
+    std::vector<guint8> brightness_map(256);
+    for (int i = 0; i < 256; i++) {
+        if (cdf[i] > cdf_min) {
+            float equalized = (cdf[i] - cdf_min) / static_cast<float>(total_pixels - cdf_min);
+            brightness_map[i] = static_cast<guint8>(equalized * 255);
+        } else {
+            brightness_map[i] = 0;
+        }
+    }
+
+    // Применяем преобразование только к яркости, сохраняя цвет
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            guint8* p = pixels + y * rowstride + x * n_channels;
+            
+            // Получаем исходные RGB значения
+            float r = p[0], g = p[1], b = p[2];
+            
+            // Вычисляем исходную яркость
+            float old_brightness = 0.299f * r + 0.587f * g + 0.114f * b;
+            int old_bright_int = static_cast<int>(old_brightness);
+            
+            // Получаем новую яркость
+            float new_brightness = brightness_map[old_bright_int];
+            
+            // Если исходная яркость была 0, избегаем деления на ноль
+            if (old_brightness > 0) {
+                // Масштабируем RGB каналы для сохранения цветового тона
+                float scale = new_brightness / old_brightness;
+                
+                p[0] = static_cast<guint8>(std::max(0.0f, std::min(255.0f, r * scale)));
+                p[1] = static_cast<guint8>(std::max(0.0f, std::min(255.0f, g * scale)));
+                p[2] = static_cast<guint8>(std::max(0.0f, std::min(255.0f, b * scale)));
+            } else {
+                // Если яркость была 0, просто устанавливаем новую яркость
+                p[0] = p[1] = p[2] = static_cast<guint8>(new_brightness);
             }
         }
     }
@@ -560,6 +648,35 @@ double FilterDialog::getSigma() const {
     return sigmaScale.get_value();
 }
 
+EqualizationDialog::EqualizationDialog(Gtk::Window& parent)
+        : Gtk::Dialog("Histogram Equalization Settings", parent, true) {
+    
+    set_default_size(350, 150);
+    set_border_width(10);
+    
+    Gtk::Box* contentBox = get_content_area();
+    
+    typeCombo.append("RGB - Equalize all channels");
+    typeCombo.append("HSV/HLS - Equalize brightness only");
+    typeCombo.set_active(0);
+    
+    typeBox.pack_start(typeLabel, false, false, 5);
+    typeBox.pack_start(typeCombo, true, true, 5);
+    
+    mainBox.pack_start(typeBox, true, true, 5);
+    
+    contentBox->pack_start(mainBox, true, true, 0);
+    
+    add_button("_Cancel", Gtk::RESPONSE_CANCEL);
+    add_button("_Apply", Gtk::RESPONSE_OK);
+    
+    show_all_children();
+}
+
+int EqualizationDialog::getEqualizationType() const {
+    return typeCombo.get_active_row_number();
+}
+
 MainWindow::MainWindow() {
     set_title("Image Processing Application");
     set_default_size(1200, 800);
@@ -811,8 +928,20 @@ void MainWindow::on_equalize_clicked() {
         error.run();
         return;
     }
-    processor.applyHistogramEqualization();
-    updateImages();
+
+    EqualizationDialog dialog(*this);
+    if (dialog.run() == Gtk::RESPONSE_OK) {
+        int equalizationType = dialog.getEqualizationType();
+        processor.applyHistogramEqualization(equalizationType);
+        updateImages();
+        
+        // Опционально: показать информацию о примененном методе
+        std::string method = (equalizationType == 0) ? "RGB (all channels)" : "HSV/HLS (brightness only)";
+        Gtk::MessageDialog info(*this, 
+            "Applied histogram equalization: " + method, 
+            false, Gtk::MESSAGE_INFO);
+        info.run();
+    }
 }
 
 void MainWindow::on_contrast_clicked() {

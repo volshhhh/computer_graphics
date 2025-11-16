@@ -1,19 +1,20 @@
-#pragma once
+#ifndef MAIN_WINDOW_H
+#define MAIN_WINDOW_H
 
-#include <gtkmm-3.0/gtkmm.h>
+#include <gtkmm.h>
 #include <vector>
 #include <string>
-#include <algorithm>
 #include <fstream>
 
 class ImageProcessor {
 public:
     ImageProcessor();
     bool loadImage(const std::string& filename);
-    void applyLowPassFilter();
+    void applyLowPassFilter(int kernelSize);
+    void applyGaussianFilter(int kernelSize, double sigma);
     std::vector<std::vector<int>> getHistogram();
-    void applyHistogramEqualization();
-    void applyLinearContrast(int min_out = 0, int max_out = 255);
+    void applyHistogramEqualization(int type = 0); // 0 = RGB, 1 = HSV/HLS
+    void applyLinearContrast(int min_out, int max_out);
     std::vector<unsigned char> encodeRLE();
     bool decodeRLE(const std::vector<unsigned char>& encoded);
     bool saveRLEToFile(const std::string& filename);
@@ -23,12 +24,11 @@ public:
     Glib::RefPtr<Gdk::Pixbuf> getFilteredPixbuf();
     void resetToOriginal();
     bool hasImage() const;
-    void applyLowPassFilter(int kernelSize = 3);
-void applyGaussianFilter(int kernelSize = 3, double sigma = 1.0);
-
 
 private:
-    Glib::RefPtr<Gdk::Pixbuf> pixbuf;
+    void applyRGBEqualization();
+    void applyBrightnessEqualization();
+    
     Glib::RefPtr<Gdk::Pixbuf> originalPixbuf;
     Glib::RefPtr<Gdk::Pixbuf> filteredPixbuf;
     int width, height;
@@ -37,10 +37,10 @@ private:
 class HistogramDrawingArea : public Gtk::DrawingArea {
 public:
     HistogramDrawingArea(const std::vector<int>& histogram, const Gdk::RGBA& color);
-
+    
 protected:
     bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) override;
-
+    
 private:
     std::vector<int> histogram;
     Gdk::RGBA color;
@@ -49,12 +49,10 @@ private:
 class HistogramDialog : public Gtk::Dialog {
 public:
     HistogramDialog(Gtk::Window& parent, const std::vector<std::vector<int>>& histogram);
-
+    
 private:
     Gtk::Notebook notebook;
-    Gtk::Box redBox{Gtk::ORIENTATION_VERTICAL};
-    Gtk::Box greenBox{Gtk::ORIENTATION_VERTICAL};
-    Gtk::Box blueBox{Gtk::ORIENTATION_VERTICAL};
+    Gtk::Box redBox, greenBox, blueBox;
     HistogramDrawingArea* redDrawingArea;
     HistogramDrawingArea* greenDrawingArea;
     HistogramDrawingArea* blueDrawingArea;
@@ -65,17 +63,15 @@ public:
     ContrastDialog(Gtk::Window& parent);
     int getMinValue() const;
     int getMaxValue() const;
-
+    
 private:
-    Gtk::Box mainBox{Gtk::ORIENTATION_VERTICAL};
-    Gtk::Box minBox{Gtk::ORIENTATION_HORIZONTAL};
-    Gtk::Box maxBox{Gtk::ORIENTATION_HORIZONTAL};
-    Gtk::Label minLabel{"Min Value (0-254):"};
-    Gtk::Label maxLabel{"Max Value (1-255):"};
-    Gtk::Scale minScale;
-    Gtk::Scale maxScale;
+    Gtk::Box mainBox{Gtk::ORIENTATION_VERTICAL, 10};
+    Gtk::Box minBox{Gtk::ORIENTATION_HORIZONTAL, 5};
+    Gtk::Box maxBox{Gtk::ORIENTATION_HORIZONTAL, 5};
+    Gtk::Label minLabel{"Minimum brightness:"};
+    Gtk::Label maxLabel{"Maximum brightness:"};
+    Gtk::Scale minScale, maxScale;
 };
-
 
 class FilterDialog : public Gtk::Dialog {
 public:
@@ -83,34 +79,36 @@ public:
     int getKernelSize() const;
     int getFilterType() const;
     double getSigma() const;
-
+    
 private:
-    Gtk::Box mainBox{Gtk::ORIENTATION_VERTICAL};
-    Gtk::Box filterTypeBox{Gtk::ORIENTATION_HORIZONTAL};
-    Gtk::Box kernelSizeBox{Gtk::ORIENTATION_HORIZONTAL};
-    Gtk::Box sigmaBox{Gtk::ORIENTATION_HORIZONTAL};
-    
-    Gtk::Label filterTypeLabel;
-    Gtk::ComboBoxText filterTypeCombo;
-    
-    Gtk::Label kernelSizeLabel;
-    Gtk::ComboBoxText kernelSizeCombo;
-    
-    Gtk::Label sigmaLabel;
+    Gtk::Box mainBox{Gtk::ORIENTATION_VERTICAL, 10};
+    Gtk::Box filterTypeBox{Gtk::ORIENTATION_HORIZONTAL, 5};
+    Gtk::Box kernelSizeBox{Gtk::ORIENTATION_HORIZONTAL, 5};
+    Gtk::Box sigmaBox{Gtk::ORIENTATION_HORIZONTAL, 5};
+    Gtk::Label filterTypeLabel, kernelSizeLabel, sigmaLabel;
+    Gtk::ComboBoxText filterTypeCombo, kernelSizeCombo;
     Gtk::Scale sigmaScale;
 };
 
+class EqualizationDialog : public Gtk::Dialog {
+public:
+    EqualizationDialog(Gtk::Window& parent);
+    int getEqualizationType() const;
 
+private:
+    Gtk::Box mainBox{Gtk::ORIENTATION_VERTICAL, 10};
+    Gtk::Box typeBox{Gtk::ORIENTATION_HORIZONTAL, 5};
+    Gtk::Label typeLabel{"Equalization Type:"};
+    Gtk::ComboBoxText typeCombo;
+};
 
 class MainWindow : public Gtk::Window {
 public:
     MainWindow();
-
+    
 private:
     void setupUI();
     void setupLayout();
-    
-    // Обработчики событий
     void on_open_clicked();
     void on_save_clicked();
     void on_lowpass_clicked();
@@ -121,23 +119,20 @@ private:
     void on_decode_and_open_rle_clicked();
     void on_reset_clicked();
     void updateImages();
-
-    // Основные виджеты макета
-    Gtk::Box mainBox{Gtk::ORIENTATION_VERTICAL};
-    Gtk::Box contentBox{Gtk::ORIENTATION_HORIZONTAL}; // (Images | Controls)
-    Gtk::Box imageStackBox{Gtk::ORIENTATION_VERTICAL}; // (Image1 / Image2)
-    Gtk::Box controlsBox{Gtk::ORIENTATION_VERTICAL}; // (Sidebar)
-
-    // Области отображения изображений
-    Gtk::ScrolledWindow originalScrolled, filteredScrolled;
-    Gtk::Frame originalFrame, filteredFrame;
-    Gtk::Image originalImage, filteredImage;
-
-    // Кнопки для боковой панели
-    Gtk::Button openButton, saveButton;
-    Gtk::Button lowpassButton, equalizeButton, contrastButton, showHistogramButton;
-    Gtk::Button encodeAndSaveRLEButton, decodeAndOpenRLEButton;
-    Gtk::Button resetButton;
-
+    
     ImageProcessor processor;
+    
+    Gtk::Box mainBox{Gtk::ORIENTATION_VERTICAL, 10};
+    Gtk::Box contentBox{Gtk::ORIENTATION_HORIZONTAL, 10};
+    Gtk::Box imageStackBox{Gtk::ORIENTATION_VERTICAL, 10};
+    Gtk::Frame originalFrame, filteredFrame;
+    Gtk::ScrolledWindow originalScrolled, filteredScrolled;
+    Gtk::Image originalImage, filteredImage;
+    Gtk::Box controlsBox{Gtk::ORIENTATION_VERTICAL, 10};
+    
+    Gtk::Button openButton, saveButton, lowpassButton, equalizeButton;
+    Gtk::Button contrastButton, showHistogramButton;
+    Gtk::Button encodeAndSaveRLEButton, decodeAndOpenRLEButton, resetButton;
 };
+
+#endif // MAIN_WINDOW_H
